@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
+        import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
         import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js";
         
         const firebaseConfig = {
@@ -41,7 +41,6 @@
             }
         }
 
-        // Add event listener to logout button
         document.addEventListener('DOMContentLoaded', () => {
             const logoutLink = document.getElementById('logoutLink');
             if (logoutLink) {
@@ -65,29 +64,47 @@
             if (duration === "--:--:--") return 0;
             const [hours, minutes] = duration.split(':').map(Number);
             const totalMinutes = (hours * 60) + minutes;
-            return totalMinutes * 2000; // Rp 2.000 per minute
+            return totalMinutes * 2000;
+        }
+
+        async function saveParkingHistory(parkingSpace, duration, fee) {
+            const now = new Date();
+            const parkingId = `P00${parkingSpace}`;
+            const historyRef = ref(database, 'riwayat_parkir');
+            const newHistoryRef = push(historyRef);
+            
+            const historyData = {
+                id_riwayat: newHistoryRef.key,
+                id_parkir: parkingId,
+                biaya_parkir: fee,
+                waktu_parkir: duration,
+                tanggal: now.toISOString().split('T')[0]
+            };
+            
+            await set(newHistoryRef, historyData);
+            await set(ref(database, `parkir/parkir${parkingSpace}/status`), "Selesai");
         }
 
         function updateDuration(parkingSpace) {
             const durationElement = document.getElementById(`duration${parkingSpace}`);
             const feeElement = document.getElementById(`fee${parkingSpace}`);
+            const startTime = parkingSpace === 1 ? startTime1 : startTime2;
             
-            if (parkingSpace === 1 && startTime1) {
-                const duration = calculateDuration(startTime1);
+            if (startTime) {
+                const duration = calculateDuration(startTime);
+                const fee = calculateParkingFee(duration);
                 durationElement.textContent = `Durasi Parkir: ${duration}`;
-                feeElement.textContent = `Biaya Parkir: Rp ${calculateParkingFee(duration)}`;
-            } else if (parkingSpace === 2 && startTime2) {
-                const duration = calculateDuration(startTime2);
-                durationElement.textContent = `Durasi Parkir: ${duration}`;
-                feeElement.textContent = `Biaya Parkir: Rp ${calculateParkingFee(duration)}`;
+                feeElement.textContent = `Biaya Parkir: Rp ${fee}`;
+                return { duration, fee };
             }
+            return null;
         }
 
         function updateStatus() {
             const palangMasukRef = ref(database, 'palang/palang1/status');
             const palangKeluarRef = ref(database, 'palang/palang2/status');
-            const parkir1Ref = ref(database, 'parkir/parkir1/status_parkir');
-            const parkir2Ref = ref(database, 'parkir/parkir2/status_parkir');
+            const parkir1Ref = ref(database, 'parkir/parkir1');
+            const parkir2Ref = ref(database, 'parkir/parkir2');
 
             onValue(palangMasukRef, (snapshot) => {
                 const status = snapshot.val();
@@ -104,14 +121,17 @@
             });
 
             onValue(parkir1Ref, (snapshot) => {
-                const status = snapshot.val();
-                document.getElementById("parkir1Status").textContent = status || "Gagal memuat status parkir";
+                const parkingData = snapshot.val();
+                document.getElementById("parkir1Status").textContent = parkingData.status_parkir || "Gagal memuat status parkir";
                 
-                if (status === "Parkir" && !startTime1) {
+                if (parkingData.status_parkir === "Parkir" && !startTime1) {
                     startTime1 = Date.now();
                     timer1 = setInterval(() => updateDuration(1), 1000);
-                } else if (status === "Tidak Parkir" && startTime1) {
+                    set(ref(database, 'parkir/parkir1/status'), "Proses");
+                } else if (parkingData.status_parkir === "Tidak Parkir" && startTime1) {
                     clearInterval(timer1);
+                    const finalStats = updateDuration(1);
+                    saveParkingHistory(1, finalStats.duration, finalStats.fee);
                     startTime1 = null;
                     document.getElementById("duration1").textContent = "Durasi Parkir: --:--:--";
                     document.getElementById("fee1").textContent = "Biaya Parkir: Rp 0";
@@ -119,14 +139,17 @@
             });
 
             onValue(parkir2Ref, (snapshot) => {
-                const status = snapshot.val();
-                document.getElementById("parkir2Status").textContent = status || "Gagal memuat status parkir";
+                const parkingData = snapshot.val();
+                document.getElementById("parkir2Status").textContent = parkingData.status_parkir || "Gagal memuat status parkir";
                 
-                if (status === "Parkir" && !startTime2) {
+                if (parkingData.status_parkir === "Parkir" && !startTime2) {
                     startTime2 = Date.now();
                     timer2 = setInterval(() => updateDuration(2), 1000);
-                } else if (status === "Tidak Parkir" && startTime2) {
+                    set(ref(database, 'parkir/parkir2/status'), "Proses");
+                } else if (parkingData.status_parkir === "Tidak Parkir" && startTime2) {
                     clearInterval(timer2);
+                    const finalStats = updateDuration(2);
+                    saveParkingHistory(2, finalStats.duration, finalStats.fee);
                     startTime2 = null;
                     document.getElementById("duration2").textContent = "Durasi Parkir: --:--:--";
                     document.getElementById("fee2").textContent = "Biaya Parkir: Rp 0";
