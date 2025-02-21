@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Parkir IoT</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+</head>
+<body class="bg-dark d-flex justify-content-center align-items-center vh-100">
+    <div class="card p-4 shadow-lg" style="width: 350px;">
+        <h2 class="text-center mb-4">Login Parkir IoT</h2>
+        <form id="loginForm">
+            <div class="mb-3">
+                <label for="email" class="form-label">Email:</label>
+                <input type="email" id="email" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="password" class="form-label">Password:</label>
+                <input type="password" id="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Login</button>
+        </form>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
+        
+        // Konfigurasi Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDrmPaRG8oi2RxQkvRXkxYBR4s06bX70WI",
+            authDomain: "iot-project-9db6a.firebaseapp.com",
+            databaseURL: "https://iot-project-9db6a-default-rtdb.firebaseio.com/",
+            projectId: "iot-project-9db6a",
+            storageBucket: "iot-project-9db6a.appspot.com",
+            messagingSenderId: "179074970587",
+            appId: "1:179074970587:web:3345fec94077dd5291adfe",
+            measurementId: "G-3DXCK1BTXX"
+        };
+
+        // Inisialisasi Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // Fungsi untuk login
+        document.getElementById("loginForm").addEventListener("submit", function(event) {
+            event.preventDefault(); // Mencegah reload halaman
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+
+            // Ambil data pengguna dari Firebase
+            const dbRef = ref(db, "users");
+            get(dbRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    let users = snapshot.val();
+                    let isAuthenticated = false;
+                    
+                    for (let key in users) {
+                        if (users[key].email === email && users[key].password === password) {
+                            isAuthenticated = true;
+                            localStorage.setItem("user", JSON.stringify(users[key]));
+                            Toastify({
+                                text: "Login Berhasil!",
+                                duration: 3000,
+                                gravity: "top",
+                                position: "right",
+                                backgroundColor: "green",
+                            }).showToast();
+                            setTimeout(() => { window.location.href = "dashboard.html"; }, 1500);
+                            break;
+                        }
+                    }
+                    if (!isAuthenticated) {
+                        Toastify({
+                            text: "Email atau password salah!",
+                            duration: 3000,
+                            gravity: "top",
+                            position: "right",
+                            backgroundColor: "red",
+                        }).showToast();
+                    }
+                } else {
+                    Toastify({
+                        text: "Database kosong!",
+                        duration: 3000,
+                        gravity: "top",
+                        position: "right",
+                        backgroundColor: "orange",
+                    }).showToast();
+                }
+            }).catch((error) => {
+                console.error("Error saat mengambil data:", error);
+                Toastify({
+                    text: "Terjadi kesalahan, coba lagi nanti.",
+                    duration: 3000,
+                    gravity: "top",
+                    position: "right",
+                    backgroundColor: "red",
+                }).showToast();
+            });
+        });
+    </script>
+</body>
+</html>
