@@ -1,246 +1,512 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Parkir</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css"
+    />
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-        import { getDatabase, ref, onValue, set, push } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
-        import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js";
-        
-        const firebaseConfig = {
-            apiKey: "AIzaSyDrmPaRG8oi2RxQkvRXkxYBR4s06bX70WI",
-            authDomain: "iot-project-9db6a.firebaseapp.com",
-            projectId: "iot-project-9db6a",
-            databaseURL: "https://iot-project-9db6a-default-rtdb.firebaseio.com/",
-            storageBucket: "iot-project-9db6a.firebasestorage.app",
-            messagingSenderId: "179074970587",
-            appId: "1:179074970587:web:3345fec94077dd5291adfe",
-            measurementId: "G-3DXCK1BTXX"
-        };
-        
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-        const auth = getAuth(app);
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+      import {
+        getDatabase,
+        ref,
+        onValue,
+        set,
+        push,
+        get,
+      } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
+      import {
+        getAuth,
+        signOut,
+      } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js";
 
-        let startTime1 = null;
-        let startTime2 = null;
-        let timer1 = null;
-        let timer2 = null;
+      const firebaseConfig = {
+        apiKey: "AIzaSyDrmPaRG8oi2RxQkvRXkxYBR4s06bX70WI",
+        authDomain: "iot-project-9db6a.firebaseapp.com",
+        projectId: "iot-project-9db6a",
+        databaseURL: "https://iot-project-9db6a-default-rtdb.firebaseio.com/",
+        storageBucket: "iot-project-9db6a.firebasestorage.app",
+        messagingSenderId: "179074970587",
+        appId: "1:179074970587:web:3345fec94077dd5291adfe",
+        measurementId: "G-3DXCK1BTXX",
+      };
 
-        async function handleLogout() {
-            try {
-                await signOut(auth);
-                window.location.href = 'index.html';
-            } catch (error) {
-                console.error('Error during logout:', error);
-                alert('Failed to logout. Please try again.');
-            }
+      const app = initializeApp(firebaseConfig);
+      const database = getDatabase(app);
+      const auth = getAuth(app);
+
+      let startTime1 = null;
+      let startTime2 = null;
+      let timer1 = null;
+      let timer2 = null;
+
+      async function handleLogout() {
+        try {
+          await signOut(auth);
+          window.location.href = "index.html";
+        } catch (error) {
+          console.error("Error during logout:", error);
+          alert("Failed to logout. Please try again.");
         }
+      }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const logoutLink = document.getElementById('logoutLink');
-            if (logoutLink) {
-                logoutLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    handleLogout();
-                });
+      document.addEventListener("DOMContentLoaded", () => {
+        const logoutLink = document.getElementById("logoutLink");
+        if (logoutLink) {
+          logoutLink.addEventListener("click", (e) => {
+            e.preventDefault();
+            handleLogout();
+          });
+        }
+      });
+
+      function calculateDuration(startTime) {
+        if (!startTime) return "--:--:--";
+        const duration = Math.floor((Date.now() - startTime) / 1000);
+        const hours = Math.floor(duration / 3600);
+        const minutes = Math.floor((duration % 3600) / 60);
+        const seconds = duration % 60;
+        return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
+          2,
+          "0"
+        )}:${String(seconds).padStart(2, "0")}`;
+      }
+
+      function calculateParkingFee(duration) {
+        if (duration === "--:--:--") return 0;
+        const [hours, minutes] = duration.split(":").map(Number);
+        const totalMinutes = hours * 60 + minutes;
+        return totalMinutes * 2000;
+      }
+
+      function formatDateTime(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString("id-ID", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        });
+      }
+
+      function formatTime(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      }
+
+      function formatRupiah(amount) {
+        return `Rp ${amount.toLocaleString("id-ID")}`;
+      }
+
+      async function saveParkingHistory(parkingSpace, duration, fee) {
+        try {
+          const now = new Date();
+          const parkingId = `P00${parkingSpace}`;
+
+          const historyRef = ref(database, "riwayat_parkir");
+          const snapshot = await get(historyRef);
+
+          let nextNumber = 1;
+          if (snapshot.exists()) {
+            const entries = Object.entries(snapshot.val() || {});
+            for (const [key, value] of entries) {
+              const match = key.match(/riwayat(\d+)/);
+              if (match) {
+                const num = parseInt(match[1]);
+                if (num >= nextNumber) {
+                  nextNumber = num + 1;
+                }
+              }
             }
+          }
+
+          const newId = `R${String(nextNumber).padStart(3, "0")}`;
+
+          const newHistoryRef = ref(
+            database,
+            `riwayat_parkir/riwayat${nextNumber}`
+          );
+          const historyData = {
+            id_riwayat: newId,
+            id_parkir: parkingId,
+            biaya_parkir: fee,
+            waktu_parkir: duration,
+            tanggal: now.toISOString(), // Simpan full ISO string
+            jam: now.toLocaleTimeString("id-ID"), // Simpan waktu
+          };
+
+          await set(newHistoryRef, historyData);
+          console.log("Berhasil menyimpan riwayat parkir:", historyData);
+
+          await set(
+            ref(database, `parkir/parkir${parkingSpace}/status`),
+            "Selesai"
+          );
+        } catch (error) {
+          console.error("Error menyimpan riwayat parkir:", error);
+        }
+      }
+
+      function updateDuration(parkingSpace) {
+        const durationElement = document.getElementById(
+          `duration${parkingSpace}`
+        );
+        const feeElement = document.getElementById(`fee${parkingSpace}`);
+        const startTime = parkingSpace === 1 ? startTime1 : startTime2;
+
+        if (startTime) {
+          const duration = calculateDuration(startTime);
+          const fee = calculateParkingFee(duration);
+          durationElement.textContent = `Durasi Parkir: ${duration}`;
+          feeElement.textContent = `Biaya Parkir: Rp ${fee}`;
+          return { duration, fee };
+        }
+        return null;
+      }
+
+      function updateRiwayatParkir() {
+        const riwayatRef = ref(database, "riwayat_parkir");
+
+        onValue(riwayatRef, (snapshot) => {
+          const data = snapshot.val();
+          if (!data) return;
+
+          const riwayat1 = [];
+          const riwayat2 = [];
+
+          Object.values(data).forEach((item) => {
+            if (item.id_parkir === "P001") {
+              riwayat1.push(item);
+            } else if (item.id_parkir === "P002") {
+              riwayat2.push(item);
+            }
+          });
+
+          const sortByDate = (a, b) =>
+            new Date(b.tanggal) - new Date(a.tanggal);
+          riwayat1.sort(sortByDate);
+          riwayat2.sort(sortByDate);
+
+          // Update tabel riwayat parkir 1
+          const tbody1 = document.getElementById("riwayatParkir1");
+          tbody1.innerHTML = riwayat1
+            .map(
+              (item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${formatDateTime(item.tanggal)}</td>
+        <td>${item.jam || formatTime(item.tanggal)}</td>
+        <td>Parkir 1</td>
+        <td>${item.waktu_parkir}</td>
+        <td>${formatRupiah(item.biaya_parkir)}</td>
+      </tr>
+    `
+            )
+            .join("");
+
+          // Update tabel riwayat parkir 2
+          const tbody2 = document.getElementById("riwayatParkir2");
+          tbody2.innerHTML = riwayat2
+            .map(
+              (item, index) => `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${formatDateTime(item.tanggal)}</td>
+        <td>${item.jam || formatTime(item.tanggal)}</td>
+        <td>Parkir 2</td>
+        <td>${item.waktu_parkir}</td>
+        <td>${formatRupiah(item.biaya_parkir)}</td>
+      </tr>
+    `
+            )
+            .join("");
+        });
+      }
+
+      function updateStatus() {
+        const palangMasukRef = ref(database, "palang/palang1/status");
+        const palangKeluarRef = ref(database, "palang/palang2/status");
+        const parkir1Ref = ref(database, "parkir/parkir1");
+        const parkir2Ref = ref(database, "parkir/parkir2");
+
+        onValue(palangMasukRef, (snapshot) => {
+          const status = snapshot.val();
+          const palangMasukStatus =
+            document.getElementById("palangMasukStatus");
+          palangMasukStatus.textContent =
+            status === 1 ? "Palang Masuk Terbuka" : "Palang Masuk Tertutup";
+          palangMasukStatus.className =
+            status === 1 ? "status-open" : "status-closed";
         });
 
-        function calculateDuration(startTime) {
-            if (!startTime) return "--:--:--";
-            const duration = Math.floor((Date.now() - startTime) / 1000);
-            const hours = Math.floor(duration / 3600);
-            const minutes = Math.floor((duration % 3600) / 60);
-            const seconds = duration % 60;
-            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        }
+        onValue(palangKeluarRef, (snapshot) => {
+          const status = snapshot.val();
+          const palangKeluarStatus =
+            document.getElementById("palangKeluarStatus");
+          palangKeluarStatus.textContent =
+            status === 1 ? "Palang Keluar Terbuka" : "Palang Keluar Tertutup";
+          palangKeluarStatus.className =
+            status === 1 ? "status-open" : "status-closed";
+        });
 
-        function calculateParkingFee(duration) {
-            if (duration === "--:--:--") return 0;
-            const [hours, minutes] = duration.split(':').map(Number);
-            const totalMinutes = (hours * 60) + minutes;
-            return totalMinutes * 2000;
-        }
+        onValue(parkir1Ref, (snapshot) => {
+          const parkingData = snapshot.val();
+          document.getElementById("parkir1Status").textContent =
+            parkingData.status_parkir || "Gagal memuat status parkir";
 
-        async function saveParkingHistory(parkingSpace, duration, fee) {
-            const now = new Date();
-            const parkingId = `P00${parkingSpace}`;
-            const historyRef = ref(database, 'riwayat_parkir');
-            const newHistoryRef = push(historyRef);
-            
-            const historyData = {
-                id_riwayat: newHistoryRef.key,
-                id_parkir: parkingId,
-                biaya_parkir: fee,
-                waktu_parkir: duration,
-                tanggal: now.toISOString().split('T')[0]
-            };
-            
-            await set(newHistoryRef, historyData);
-            await set(ref(database, `parkir/parkir${parkingSpace}/status`), "Selesai");
-        }
+          if (parkingData.status_parkir === "Parkir" && !startTime1) {
+            startTime1 = Date.now();
+            timer1 = setInterval(() => updateDuration(1), 1000);
+            set(ref(database, "parkir/parkir1/status"), "Proses");
+          } else if (
+            parkingData.status_parkir === "Tidak Parkir" &&
+            startTime1
+          ) {
+            clearInterval(timer1);
+            const finalStats = updateDuration(1);
+            saveParkingHistory(1, finalStats.duration, finalStats.fee);
+            startTime1 = null;
+            document.getElementById("duration1").textContent =
+              "Durasi Parkir: --:--:--";
+            document.getElementById("fee1").textContent = "Biaya Parkir: Rp 0";
+          }
+        });
 
-        function updateDuration(parkingSpace) {
-            const durationElement = document.getElementById(`duration${parkingSpace}`);
-            const feeElement = document.getElementById(`fee${parkingSpace}`);
-            const startTime = parkingSpace === 1 ? startTime1 : startTime2;
-            
-            if (startTime) {
-                const duration = calculateDuration(startTime);
-                const fee = calculateParkingFee(duration);
-                durationElement.textContent = `Durasi Parkir: ${duration}`;
-                feeElement.textContent = `Biaya Parkir: Rp ${fee}`;
-                return { duration, fee };
-            }
-            return null;
-        }
+        onValue(parkir2Ref, (snapshot) => {
+          const parkingData = snapshot.val();
+          document.getElementById("parkir2Status").textContent =
+            parkingData.status_parkir || "Gagal memuat status parkir";
 
-        function updateStatus() {
-            const palangMasukRef = ref(database, 'palang/palang1/status');
-            const palangKeluarRef = ref(database, 'palang/palang2/status');
-            const parkir1Ref = ref(database, 'parkir/parkir1');
-            const parkir2Ref = ref(database, 'parkir/parkir2');
+          if (parkingData.status_parkir === "Parkir" && !startTime2) {
+            startTime2 = Date.now();
+            timer2 = setInterval(() => updateDuration(2), 1000);
+            set(ref(database, "parkir/parkir2/status"), "Proses");
+          } else if (
+            parkingData.status_parkir === "Tidak Parkir" &&
+            startTime2
+          ) {
+            clearInterval(timer2);
+            const finalStats = updateDuration(2);
+            saveParkingHistory(2, finalStats.duration, finalStats.fee);
+            startTime2 = null;
+            document.getElementById("duration2").textContent =
+              "Durasi Parkir: --:--:--";
+            document.getElementById("fee2").textContent = "Biaya Parkir: Rp 0";
+          }
+        });
+      }
 
-            onValue(palangMasukRef, (snapshot) => {
-                const status = snapshot.val();
-                const palangMasukStatus = document.getElementById("palangMasukStatus");
-                palangMasukStatus.textContent = status === 1 ? "Palang Masuk Terbuka" : "Palang Masuk Tertutup";
-                palangMasukStatus.className = status === 1 ? "status-open" : "status-closed";
-            });
-
-            onValue(palangKeluarRef, (snapshot) => {
-                const status = snapshot.val();
-                const palangKeluarStatus = document.getElementById("palangKeluarStatus");
-                palangKeluarStatus.textContent = status === 1 ? "Palang Keluar Terbuka" : "Palang Keluar Tertutup";
-                palangKeluarStatus.className = status === 1 ? "status-open" : "status-closed";
-            });
-
-            onValue(parkir1Ref, (snapshot) => {
-                const parkingData = snapshot.val();
-                document.getElementById("parkir1Status").textContent = parkingData.status_parkir || "Gagal memuat status parkir";
-                
-                if (parkingData.status_parkir === "Parkir" && !startTime1) {
-                    startTime1 = Date.now();
-                    timer1 = setInterval(() => updateDuration(1), 1000);
-                    set(ref(database, 'parkir/parkir1/status'), "Proses");
-                } else if (parkingData.status_parkir === "Tidak Parkir" && startTime1) {
-                    clearInterval(timer1);
-                    const finalStats = updateDuration(1);
-                    saveParkingHistory(1, finalStats.duration, finalStats.fee);
-                    startTime1 = null;
-                    document.getElementById("duration1").textContent = "Durasi Parkir: --:--:--";
-                    document.getElementById("fee1").textContent = "Biaya Parkir: Rp 0";
-                }
-            });
-
-            onValue(parkir2Ref, (snapshot) => {
-                const parkingData = snapshot.val();
-                document.getElementById("parkir2Status").textContent = parkingData.status_parkir || "Gagal memuat status parkir";
-                
-                if (parkingData.status_parkir === "Parkir" && !startTime2) {
-                    startTime2 = Date.now();
-                    timer2 = setInterval(() => updateDuration(2), 1000);
-                    set(ref(database, 'parkir/parkir2/status'), "Proses");
-                } else if (parkingData.status_parkir === "Tidak Parkir" && startTime2) {
-                    clearInterval(timer2);
-                    const finalStats = updateDuration(2);
-                    saveParkingHistory(2, finalStats.duration, finalStats.fee);
-                    startTime2 = null;
-                    document.getElementById("duration2").textContent = "Durasi Parkir: --:--:--";
-                    document.getElementById("fee2").textContent = "Biaya Parkir: Rp 0";
-                }
-            });
-        }
-
-        document.addEventListener("DOMContentLoaded", updateStatus);
+      document.addEventListener("DOMContentLoaded", () => {
+        updateStatus();
+        updateRiwayatParkir();
+      });
     </script>
     <style>
-        .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 250px;
-            height: 100vh;
-            color: white;
-            background: linear-gradient(180deg, #1a1f3c 0%, #111226 100%);
-            padding-top: 20px;
-            transition: all 0.3s;
-            z-index: 1000;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-        }
-        .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            padding: 0.8rem 1rem;
-            border-radius: 8px;
-            margin: 0.2rem 0.8rem;
-            transition: all 0.3s;
-            display: block;
-        }
-        .nav-link:hover {
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-        }
-        .main-content {
-            margin-left: 250px;
-            padding: 20px;
-        }
-        .status-card {
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-        .status-open {
-            color: green;
-        }
-        .status-closed {
-            color: red;
-        }
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 250px;
+        height: 100vh;
+        color: white;
+        background: linear-gradient(180deg, #1a1f3c 0%, #111226 100%);
+        padding-top: 20px;
+        transition: all 0.3s;
+        z-index: 1000;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+      }
+      .nav-link {
+        color: rgba(255, 255, 255, 0.8);
+        padding: 0.8rem 1rem;
+        border-radius: 8px;
+        margin: 0.2rem 0.8rem;
+        transition: all 0.3s;
+        display: block;
+      }
+      .nav-link:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+      }
+      .main-content {
+        margin-left: 250px;
+        padding: 20px;
+      }
+      .status-card {
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+      .status-open {
+        color: green;
+      }
+      .status-closed {
+        color: red;
+      }
+      .card {
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        margin-bottom: 20px;
+      }
+
+      .card-header {
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #dee2e6;
+        padding: 15px;
+        border-radius: 10px 10px 0 0;
+      }
+
+      .table {
+        margin-bottom: 0;
+      }
+
+      .table th {
+        font-weight: 600;
+        background-color: #f8f9fa;
+      }
+
+      .pagination {
+        margin-top: 15px;
+        margin-bottom: 0;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="sidebar">
-        <h4 class="text-center text-white">Smart Parking</h4>
-        <nav class="nav flex-column">
-            <a href="dashboard.html" class="nav-link active"><i class="bi bi-house-door"></i> Dashboard</a>
-            <a href="parkir.html" class="nav-link"><i class="bi bi-car-front"></i> Parkir</a>
-            <a href="#" class="nav-link"><i class="bi bi-clipboard-data"></i> Laporan</a>
-            <a href="#" class="nav-link" id="logoutLink"><i class="bi bi-box-arrow-right"></i> Keluar</a>
-        </nav>
+      <h4 class="text-center text-white">Smart Parking</h4>
+      <nav class="nav flex-column">
+        <a href="dashboard.html" class="nav-link active"
+          ><i class="bi bi-house-door"></i> Dashboard</a
+        >
+        <a href="parkir.html" class="nav-link"
+          ><i class="bi bi-car-front"></i> Parkir</a
+        >
+        <a href="#" class="nav-link"
+          ><i class="bi bi-clipboard-data"></i> Laporan</a
+        >
+        <a href="#" class="nav-link" id="logoutLink"
+          ><i class="bi bi-box-arrow-right"></i> Keluar</a
+        >
+      </nav>
     </div>
 
     <div class="main-content">
-        <div class="row">
-            <div class="col-md-6">
-                <div class="status-card">
-                    <h5>Palang Masuk</h5>
-                    <p id="palangMasukStatus">Loading...</p>
-                </div>
-                <div class="status-card">
-                    <h5>Parkir 1</h5>
-                    <p id="parkir1Status" class="text-danger">Gagal memuat status parkir</p>
-                    <p id="duration1">Durasi Parkir: --:--:--</p>
-                    <p id="fee1">Biaya Parkir: Rp 0</p>
-                </div>
-            </div>
-            <div class="col-md-6">
-                <div class="status-card">
-                    <h5>Palang Keluar</h5>
-                    <p id="palangKeluarStatus">Loading...</p>
-                </div>
-                <div class="status-card">
-                    <h5>Parkir 2</h5>
-                    <p id="parkir2Status" class="text-danger">Gagal memuat status parkir</p>
-                    <p id="duration2">Durasi Parkir: --:--:--</p>
-                    <p id="fee2">Biaya Parkir: Rp 0</p>
-                </div>
-            </div>
+      <div class="row">
+        <div class="col-md-6">
+          <div class="status-card">
+            <h5>Palang Masuk</h5>
+            <p id="palangMasukStatus">Loading...</p>
+          </div>
+          <div class="status-card">
+            <h5>Parkir 1</h5>
+            <p id="parkir1Status" class="text-danger">
+              Gagal memuat status parkir
+            </p>
+            <p id="duration1">Durasi Parkir: --:--:--</p>
+            <p id="fee1">Biaya Parkir: Rp 0</p>
+          </div>
         </div>
+        <div class="col-md-6">
+          <div class="status-card">
+            <h5>Palang Keluar</h5>
+            <p id="palangKeluarStatus">Loading...</p>
+          </div>
+          <div class="status-card">
+            <h5>Parkir 2</h5>
+            <p id="parkir2Status" class="text-danger">
+              Gagal memuat status parkir
+            </p>
+            <p id="duration2">Durasi Parkir: --:--:--</p>
+            <p id="fee2">Biaya Parkir: Rp 0</p>
+          </div>
+        </div>
+        <!-- Riwayat Parkir 1 -->
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Riwayat Parkir - Parkir 1</h5>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>Tanggal</th>
+                      <th>Jam</th>
+                      <th>Lahan Parkir</th>
+                      <th>Durasi</th>
+                      <th>Biaya</th>
+                    </tr>
+                  </thead>
+                  <tbody id="riwayatParkir1"></tbody>
+                </table>
+              </div>
+              <nav>
+                <ul class="pagination justify-content-center">
+                  <li class="page-item">
+                    <a class="page-link" href="#" id="prevPage1">«</a>
+                  </li>
+                  <li class="page-item active">
+                    <span class="page-link">Halaman 1 dari 1</span>
+                  </li>
+                  <li class="page-item">
+                    <a class="page-link" href="#" id="nextPage1">»</a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+        </div>
+
+        <!-- Riwayat Parkir 2 -->
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="mb-0">Riwayat Parkir - Parkir 2</h5>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                  <thead>
+                    <tr>
+                      <th>No</th>
+                      <th>Tanggal</th>
+                      <th>Lahan Parkir</th>
+                      <th>Durasi</th>
+                      <th>Biaya</th>
+                    </tr>
+                  </thead>
+                  <tbody id="riwayatParkir2"></tbody>
+                </table>
+              </div>
+              <nav>
+                <ul class="pagination justify-content-center">
+                  <li class="page-item">
+                    <a class="page-link" href="#" id="prevPage2">«</a>
+                  </li>
+                  <li class="page-item active">
+                    <span class="page-link">Halaman 1 dari 1</span>
+                  </li>
+                  <li class="page-item">
+                    <a class="page-link" href="#" id="nextPage2">»</a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-</body>
+  </body>
 </html>
