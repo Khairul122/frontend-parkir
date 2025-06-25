@@ -3,33 +3,156 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Parkir IoT</title>
+    <title>Parkir Otomatis - Smart Parking System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+        }
+        .login-container {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+            transition: all 0.3s ease;
+        }
+        .login-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px 0 rgba(31, 38, 135, 0.5);
+        }
+        .form-control {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            border-radius: 10px;
+        }
+        .form-control:focus {
+            background: rgba(255, 255, 255, 0.3);
+            border-color: #fff;
+            color: white;
+            box-shadow: 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+        }
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        .btn-login {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 10px;
+            padding: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .title {
+            background: linear-gradient(45deg, #fff, #f8f9fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+        .status-online { background-color: #28a745; }
+        .status-offline { background-color: #dc3545; }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .parking-stats {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 20px;
+            backdrop-filter: blur(5px);
+        }
+        .stat-item {
+            text-align: center;
+            color: white;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            display: block;
+        }
+        .loading-spinner {
+            display: none;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid #fff;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
 </head>
-<body class="bg-dark d-flex justify-content-center align-items-center vh-100">
-    <div class="card p-4 shadow-lg" style="width: 350px;">
-        <h2 class="text-center mb-4">Login Parkir IoT</h2>
-        <form id="loginForm">
-            <div class="mb-3">
-                <label for="email" class="form-label">Email:</label>
-                <input type="email" id="email" class="form-control" required>
+<body class="d-flex justify-content-center align-items-center">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+                <div class="login-container p-4">
+                    <div class="text-center mb-4">
+                        <h1 class="title display-6 mb-2">🚗 Parkir Otomatis</h1>
+                        <p class="text-white-50">Smart Parking Management System</p>
+                        <div class="status-indicator status-online"></div>
+                        <small class="text-white-50">System Online</small>
+                    </div>
+                    
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <input type="email" id="email" class="form-control" placeholder="Email Address" required>
+                        </div>
+                        <div class="mb-3">
+                            <input type="password" id="password" class="form-control" placeholder="Password" required>
+                        </div>
+                        <button type="submit" class="btn btn-login btn-primary w-100">
+                            <span class="login-text">Login to Dashboard</span>
+                            <div class="loading-spinner"></div>
+                        </button>
+                    </form>
+                    
+                    <div class="parking-stats">
+                        <div class="row">
+                            <div class="col-6 stat-item">
+                                <span class="stat-number" id="totalSlots">4</span>
+                                <small>Total Slots</small>
+                            </div>
+                            <div class="col-6 stat-item">
+                                <span class="stat-number" id="availableSlots">3</span>
+                                <small>Available</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="mb-3">
-                <label for="password" class="form-label">Password:</label>
-                <input type="password" id="password" class="form-control" required>
-            </div>
-            <button type="submit" class="btn btn-primary w-100">Login</button>
-        </form>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-        import { getDatabase, ref, get, child } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
-        
-        // Konfigurasi Firebase
+        import { getDatabase, ref, get, onValue } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
+
         const firebaseConfig = {
             apiKey: "AIzaSyDrmPaRG8oi2RxQkvRXkxYBR4s06bX70WI",
             authDomain: "iot-project-9db6a.firebaseapp.com",
@@ -41,67 +164,115 @@
             measurementId: "G-3DXCK1BTXX"
         };
 
-        // Inisialisasi Firebase
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // Fungsi untuk login
+        function updateParkingStats() {
+            const parkingRef = ref(db, 'parkir');
+            onValue(parkingRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    let totalSlots = Object.keys(data).length;
+                    let occupiedSlots = 0;
+                    
+                    Object.values(data).forEach(slot => {
+                        if (slot.status_parkir === 'kosong') {
+                            occupiedSlots++;
+                        }
+                    });
+                    
+                    let availableSlots = totalSlots - occupiedSlots;
+                    
+                    document.getElementById('totalSlots').textContent = totalSlots;
+                    document.getElementById('availableSlots').textContent = availableSlots;
+                }
+            });
+        }
+
+        function showToast(message, type = 'success') {
+            const colors = {
+                success: '#28a745',
+                error: '#dc3545',
+                warning: '#ffc107'
+            };
+            
+            Toastify({
+                text: message,
+                duration: 3000,
+                gravity: "top",
+                position: "right",
+                backgroundColor: colors[type],
+                style: {
+                    borderRadius: '10px',
+                    fontWeight: 'bold'
+                }
+            }).showToast();
+        }
+
+        function setLoadingState(loading) {
+            const spinner = document.querySelector('.loading-spinner');
+            const text = document.querySelector('.login-text');
+            const button = document.querySelector('.btn-login');
+            
+            if (loading) {
+                spinner.style.display = 'inline-block';
+                text.textContent = 'Logging in...';
+                button.disabled = true;
+            } else {
+                spinner.style.display = 'none';
+                text.textContent = 'Login to Dashboard';
+                button.disabled = false;
+            }
+        }
+
         document.getElementById("loginForm").addEventListener("submit", function(event) {
-            event.preventDefault(); // Mencegah reload halaman
+            event.preventDefault();
+            
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
+            
+            setLoadingState(true);
 
-            // Ambil data pengguna dari Firebase
             const dbRef = ref(db, "users");
             get(dbRef).then((snapshot) => {
                 if (snapshot.exists()) {
-                    let users = snapshot.val();
+                    const users = snapshot.val();
                     let isAuthenticated = false;
+                    let userData = null;
                     
                     for (let key in users) {
                         if (users[key].email === email && users[key].password === password) {
                             isAuthenticated = true;
-                            localStorage.setItem("user", JSON.stringify(users[key]));
-                            Toastify({
-                                text: "Login Berhasil!",
-                                duration: 3000,
-                                gravity: "top",
-                                position: "right",
-                                backgroundColor: "green",
-                            }).showToast();
-                            setTimeout(() => { window.location.href = "dashboard.html"; }, 1500);
+                            userData = { ...users[key], id: key };
                             break;
                         }
                     }
-                    if (!isAuthenticated) {
-                        Toastify({
-                            text: "Email atau password salah!",
-                            duration: 3000,
-                            gravity: "top",
-                            position: "right",
-                            backgroundColor: "red",
-                        }).showToast();
-                    }
+                    
+                    setTimeout(() => {
+                        setLoadingState(false);
+                        
+                        if (isAuthenticated) {
+                            showToast("Login successful! Redirecting...", 'success');
+                            setTimeout(() => {
+                                window.location.href = "dashboard.html";
+                            }, 1500);
+                        } else {
+                            showToast("Invalid email or password!", 'error');
+                            document.getElementById("password").value = '';
+                        }
+                    }, 1000);
                 } else {
-                    Toastify({
-                        text: "Database kosong!",
-                        duration: 3000,
-                        gravity: "top",
-                        position: "right",
-                        backgroundColor: "orange",
-                    }).showToast();
+                    setLoadingState(false);
+                    showToast("No users found in database!", 'warning');
                 }
             }).catch((error) => {
-                console.error("Error saat mengambil data:", error);
-                Toastify({
-                    text: "Terjadi kesalahan, coba lagi nanti.",
-                    duration: 3000,
-                    gravity: "top",
-                    position: "right",
-                    backgroundColor: "red",
-                }).showToast();
+                setLoadingState(false);
+                console.error("Login error:", error);
+                showToast("Connection error. Please try again.", 'error');
             });
         });
+
+        updateParkingStats();
     </script>
 </body>
 </html>
