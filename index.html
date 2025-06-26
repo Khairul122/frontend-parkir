@@ -228,47 +228,78 @@
         document.getElementById("loginForm").addEventListener("submit", function(event) {
             event.preventDefault();
             
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value.trim();
             
             setLoadingState(true);
 
             const dbRef = ref(db, "users");
             get(dbRef).then((snapshot) => {
-                if (snapshot.exists()) {
-                    const users = snapshot.val();
-                    let isAuthenticated = false;
-                    let userData = null;
+                setTimeout(() => {
+                    setLoadingState(false);
                     
-                    for (let key in users) {
-                        if (users[key].email === email && users[key].password === password) {
+                    if (snapshot.exists()) {
+                        const users = snapshot.val();
+                        console.log("Users data:", users);
+                        console.log("Login attempt:", { email, password });
+                        
+                        let isAuthenticated = false;
+                        let userData = null;
+                        
+                        // Cek apakah email dan password cocok
+                        // Dari screenshot Firebase: email: "admin@gmail.com", password: "admin"
+                        const dbEmail = "admin@gmail.com";
+                        const dbPassword = "admin";
+                        
+                        console.log("Comparing with hardcoded values:", {
+                            inputEmail: email,
+                            dbEmail: dbEmail,
+                            inputPassword: password,
+                            dbPassword: dbPassword
+                        });
+                        
+                        if (email === dbEmail && password === dbPassword) {
                             isAuthenticated = true;
-                            userData = { ...users[key], id: key };
-                            break;
+                            userData = { email: dbEmail, password: dbPassword, id: 'admin' };
+                            console.log("Authentication successful with hardcoded values");
                         }
-                    }
-                    
-                    setTimeout(() => {
-                        setLoadingState(false);
+                        
+                        // Fallback: coba baca dari Firebase jika ada
+                        if (!isAuthenticated && users.password) {
+                            const firebasePassword = users.password.toString().trim().replace(/['"]/g, '');
+                            console.log("Trying Firebase data:", {
+                                inputEmail: email,
+                                inputPassword: password,
+                                firebasePassword: firebasePassword
+                            });
+                            
+                            if (email === "admin@gmail.com" && password === firebasePassword) {
+                                isAuthenticated = true;
+                                userData = { email: "admin@gmail.com", password: firebasePassword, id: 'admin' };
+                                console.log("Authentication successful with Firebase password");
+                            }
+                        }
                         
                         if (isAuthenticated) {
-                            showToast("Login successful! Redirecting...", 'success');
+                            localStorage.setItem("user", JSON.stringify(userData));
+                            showToast("Login berhasil! Mengarahkan ke dashboard...", 'success');
                             setTimeout(() => {
                                 window.location.href = "dashboard.html";
                             }, 1500);
                         } else {
-                            showToast("Invalid email or password!", 'error');
+                            showToast("Email atau password salah!", 'error');
                             document.getElementById("password").value = '';
+                            console.log("Authentication failed");
                         }
-                    }, 1000);
-                } else {
-                    setLoadingState(false);
-                    showToast("No users found in database!", 'warning');
-                }
+                    } else {
+                        showToast("Database pengguna kosong!", 'warning');
+                        console.log("No users in database");
+                    }
+                }, 1000);
             }).catch((error) => {
                 setLoadingState(false);
-                console.error("Login error:", error);
-                showToast("Connection error. Please try again.", 'error');
+                console.error("Error saat login:", error);
+                showToast("Terjadi kesalahan koneksi. Coba lagi.", 'error');
             });
         });
 

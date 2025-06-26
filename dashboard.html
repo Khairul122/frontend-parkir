@@ -3,91 +3,1062 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Parkir IoT</title>
+    <title>Dashboard - Parkir Otomatis</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
     <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+        }
         .sidebar {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 250px;
-            height: 100vh;
-            color: white;
-            background: linear-gradient(180deg, #1a1f3c 0%, #111226 100%);
-            padding-top: 20px;
-            transition: all 0.3s;
-            z-index: 1000;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-        }
-        .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            padding: 0.8rem 1rem;
-            border-radius: 8px;
-            margin: 0.2rem 0.8rem;
-            transition: all 0.3s;
-            display: block;
-        }
-        .nav-link:hover {
-            color: white;
-            background: rgba(77, 124, 254, 0.1);
-            transform: translateX(5px);
-        }
-        .nav-link.active {
-            color: white;
-            background: linear-gradient(45deg, #4d7cfe, #2b4db5);
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            min-height: 100vh;
         }
         .main-content {
-            margin-left: 250px;
-            padding: 20px;
-            transition: all 0.3s;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
+            min-height: 100vh;
         }
-        .bg-gradient-primary {
-            background: linear-gradient(45deg, #2937f0, #9f1ae2) !important;
-        }
-        .card {
+        .card-glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 15px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
             transition: all 0.3s ease;
         }
-        .card:hover {
+        .card-glass:hover {
             transform: translateY(-5px);
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .parking-slot {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            margin: 10px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 220px;
+        }
+        .parking-slot::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .parking-slot:hover::before {
+            left: 100%;
+        }
+        .slot-available {
+            border-color: #28a745;
+            background: rgba(40, 167, 69, 0.2);
+        }
+        .slot-occupied {
+            border-color: #dc3545;
+            background: rgba(220, 53, 69, 0.2);
+        }
+        .slot-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        .timer-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 8px;
+            margin: 8px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+        .cost-display {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            padding: 6px;
+            margin-top: 8px;
+            font-weight: bold;
+            color: #ffc107;
+        }
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8) !important;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 5px 0;
+            transition: all 0.3s ease;
+        }
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white !important;
+        }
+        .stats-card {
+            background: linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.2));
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            color: white;
+        }
+        .stats-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            display: block;
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background-color: #28a745; }
+        .status-offline { background-color: #dc3545; }
+        .sensor-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            backdrop-filter: blur(5px);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            transform: translateY(-2px);
+        }
+        .text-white-80 {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .text-white-60 {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        .revenue-card {
+            background: linear-gradient(45deg, rgba(255,193,7,0.2), rgba(255,193,7,0.1));
+            border: 1px solid rgba(255,193,7,0.5);
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                min-height: auto;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="sidebar">
-        <h4 class="text-center text-white">Smart Parking</h4>
-        <nav class="nav flex-column">
-            <a href="dashboard.html" class="nav-link active"><i class="bi bi-house-door"></i> Dashboard</a>
-            <a href="parkir.html" class="nav-link"><i class="bi bi-car-front"></i> Parkir</a>
-            <a href="#" class="nav-link"><i class="bi bi-clipboard-data"></i> Laporan</a>
-            <a href="#" class="nav-link"><i class="bi bi-box-arrow-right"></i> Keluar</a>
-        </nav>
-    </div>
-
-    <div class="main-content">
-        <button class="btn btn-dark d-md-none mb-3" type="button" onclick="toggleSidebar()">
-            <i class="bi bi-list"></i> Menu
-        </button>
-        <div class="row g-3 mb-4">
-            <div class="col-12">
-                <div class="card bg-gradient-primary border-0 overflow-hidden position-relative">
-                    <div class="card-body p-4">
-                        <h1 class="display-4 fw-bold text-white">Welcome to Smart Parking System</h1>
-                        <p class="lead text-light opacity-75">Transform your parking management with IoT integration</p>
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="text-center mb-4">
+                        <h4 class="text-white">🚗 Parkir Otomatis</h4>
+                        <p class="text-white-60">Smart Parking System</p>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="dashboard.html" >
+                                📊 Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="parkir.html">
+                                🅿️ Status Parkir
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="riwayat.html" >
+                                📋 History
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <div class="mt-auto pt-3">
+                        <button class="btn btn-glass w-100" onclick="logout()">
+                            🚪 Logout
+                        </button>
                     </div>
                 </div>
-            </div>
+            </nav>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="pt-3 pb-2 mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h1 class="h2 text-white">Dashboard Parkir</h1>
+                        <div class="text-white-80">
+                            <span class="status-indicator status-online pulse"></span>
+                            System Online
+                        </div>
+                    </div>
+                </div>
+
+                <div id="dashboard-section">
+                    <div class="row mb-4">
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <span class="stats-number" id="totalSlotsStats">-</span>
+                                <small>Total Slots</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <span class="stats-number text-success" id="availableSlotsStats">-</span>
+                                <small>Available</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <span class="stats-number text-danger" id="occupiedSlotsStats">-</span>
+                                <small>Occupied</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card revenue-card">
+                                <span class="stats-number text-warning" id="dailyRevenue">Rp 0</span>
+                                <small>Daily Revenue</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-lg-8 mb-4">
+                            <div class="card-glass p-4">
+                                <h5 class="text-white mb-3">Parking Slots with Billing</h5>
+                                <div class="row" id="parkingSlots">
+                                    <div class="col-12 text-center text-white p-4">
+                                        <h5>Loading parking data...</h5>
+                                        <p>Connecting to Firebase database...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-4 mb-4">
+                            <div class="card-glass p-4">
+                                <h5 class="text-white mb-3">Active Timers</h5>
+                                <div id="activeTimers">
+                                    <p class="text-white-60">No active parking sessions</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="revenue-section" style="display: none;">
+                    <div class="row mb-4">
+                        <div class="col-lg-6 mb-3">
+                            <div class="stats-card revenue-card">
+                                <span class="stats-number text-warning" id="todayRevenue">Rp 0</span>
+                                <small>Today's Revenue</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-6 mb-3">
+                            <div class="stats-card revenue-card">
+                                <span class="stats-number text-warning" id="monthlyRevenue">Rp 0</span>
+                                <small>Monthly Revenue</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-glass p-4">
+                        <h5 class="text-white mb-3">Revenue Analytics</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="sensor-card">
+                                    <h6 class="text-white">Average Session Duration</h6>
+                                    <p class="text-warning" id="avgDuration">-</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="sensor-card">
+                                    <h6 class="text-white">Total Sessions Today</h6>
+                                    <p class="text-info" id="totalSessions">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="history-section" style="display: none;">
+                    <div class="card-glass p-4">
+                        <h5 class="text-white mb-3">Parking History</h5>
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Tanggal</th>
+                                        <th>Slot</th>
+                                        <th>Durasi</th>
+                                        <th>Biaya</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTable">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="settings-section" style="display: none;">
+                    <div class="card-glass p-4">
+                        <h5 class="text-white mb-3">System Settings</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label text-white">Tarif per 10 detik (Rp)</label>
+                                    <input type="number" class="form-control" value="2000" id="tarif">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label text-white">Max Parking Duration (hours)</label>
+                                    <input type="number" class="form-control" value="24" id="maxDuration">
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-glass" onclick="saveSettings()">Save Settings</button>
+                    </div>
+                </div>
+            </main>
         </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        function toggleSidebar() {
-            document.querySelector(".sidebar").classList.toggle("d-none");
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+        import { getDatabase, ref, onValue, push, set } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDrmPaRG8oi2RxQkvRXkxYBR4s06bX70WI",
+            authDomain: "iot-project-9db6a.firebaseapp.com",
+            databaseURL: "https://iot-project-9db6a-default-rtdb.firebaseio.com/",
+            projectId: "iot-project-9db6a",
+            storageBucket: "iot-project-9db6a.appspot.com",
+            messagingSenderId: "179074970587",
+            appId: "1:179074970587:web:3345fec94077dd5291adfe",
+            measurementId: "G-3DXCK1BTXX"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let parkingData = {};
+        let timers = {};
+        let tarif = 2000;
+        let dailyRevenue = 0;
+
+        function formatTime(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
         }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0
+            }).format(amount);
+        }
+
+        function getTanggalIndonesia() {
+            const now = new Date();
+            const options = {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Jakarta'
+            };
+            return now.toLocaleDateString('id-ID', options);
+        }
+
+        function startTimer(slotId) {
+            if (timers[slotId]) return;
+            
+            timers[slotId] = {
+                startTime: Date.now(),
+                intervalId: setInterval(() => {
+                    updateSlotTimer(slotId);
+                }, 1000)
+            };
+        }
+
+        function stopTimer(slotId) {
+            if (!timers[slotId]) return;
+            
+            const duration = Math.floor((Date.now() - timers[slotId].startTime) / 1000);
+            const cost = Math.floor(duration / 10) * tarif;
+            
+            clearInterval(timers[slotId].intervalId);
+            delete timers[slotId];
+            
+            saveToHistory(slotId, duration, cost);
+            return { duration, cost };
+        }
+
+        function updateSlotTimer(slotId) {
+            if (!timers[slotId]) return;
+            
+            const duration = Math.floor((Date.now() - timers[slotId].startTime) / 1000);
+            const cost = Math.floor(duration / 10) * tarif;
+            
+            const slotElement = document.querySelector(`[data-slot="${slotId}"]`);
+            if (slotElement) {
+                const timerDisplay = slotElement.querySelector('.timer-display');
+                const costDisplay = slotElement.querySelector('.cost-display');
+                
+                if (timerDisplay) timerDisplay.textContent = formatTime(duration);
+                if (costDisplay) costDisplay.textContent = formatCurrency(cost);
+            }
+            
+            updateActiveTimers();
+        }
+
+        function updateActiveTimers() {
+            const container = document.getElementById('activeTimers');
+            if (Object.keys(timers).length === 0) {
+                container.innerHTML = '<p class="text-white-60">No active parking sessions</p>';
+                return;
+            }
+            
+            let html = '';
+            Object.keys(timers).forEach(slotId => {
+                const duration = Math.floor((Date.now() - timers[slotId].startTime) / 1000);
+                const cost = Math.floor(duration / 10) * tarif;
+                html += `
+                    <div class="sensor-card">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <h6 class="text-white">${slotId}</h6>
+                                <small class="text-white-60">${formatTime(duration)}</small>
+                            </div>
+                            <div class="text-warning">${formatCurrency(cost)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        async function saveToHistory(slotId, duration, cost) {
+            try {
+                const historyRef = ref(db, 'riwayat_parkir');
+                await push(historyRef, {
+                    slot: slotId,
+                    durasi: formatTime(duration),
+                    biaya: cost,
+                    tanggal: getTanggalIndonesia()
+                });
+                
+                dailyRevenue += cost;
+                updateRevenueDisplay();
+                console.log(`History saved for ${slotId}: ${formatTime(duration)}, ${formatCurrency(cost)}`);
+            } catch (error) {
+                console.error('Error saving history:', error);
+            }
+        }
+
+        function displayParkingSlots() {
+            const container = document.getElementById('parkingSlots');
+            
+            if (Object.keys(parkingData).length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center text-white p-4">
+                        <h5>❌ No parking data available</h5>
+                        <p>Please check Firebase connection</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            
+            Object.keys(parkingData).sort().forEach(key => {
+                const slot = parkingData[key];
+                const isAvailable = slot.status_parkir === 'kosong';
+                const slotId = slot.id || `Slot ${key}`;
+                
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'col-md-6 col-lg-3 mb-3';
+                slotDiv.innerHTML = `
+                    <div class="parking-slot ${isAvailable ? 'slot-available' : 'slot-occupied'}" data-slot="${slotId}">
+                        <div class="slot-icon">${isAvailable ? '🅿️' : '🚗'}</div>
+                        <h6 class="text-white">${slotId}</h6>
+                        <p class="text-white-80 mb-1">Sensor: ${slot.sensor_id || 'N/A'}</p>
+                        <span class="badge ${isAvailable ? 'bg-success' : 'bg-danger'}">
+                            ${isAvailable ? 'Available' : 'Occupied'}
+                        </span>
+                        ${!isAvailable ? `
+                            <div class="timer-display text-white">00:00:00</div>
+                            <div class="cost-display">Rp 0</div>
+                        ` : ''}
+                    </div>
+                `;
+                container.appendChild(slotDiv);
+            });
+        }
+
+        function updateStats() {
+            const totalSlots = Object.keys(parkingData).length;
+            let availableSlots = 0;
+            
+            Object.values(parkingData).forEach(slot => {
+                if (slot.status_parkir === 'kosong') {
+                    availableSlots++;
+                }
+            });
+            
+            const occupiedSlots = totalSlots - availableSlots;
+            
+            document.getElementById('totalSlotsStats').textContent = totalSlots || '-';
+            document.getElementById('availableSlotsStats').textContent = availableSlots || '-';
+            document.getElementById('occupiedSlotsStats').textContent = occupiedSlots || '-';
+            
+            updateRevenueDisplay();
+        }
+
+        function updateRevenueDisplay() {
+            document.getElementById('dailyRevenue').textContent = formatCurrency(dailyRevenue);
+            document.getElementById('todayRevenue').textContent = formatCurrency(dailyRevenue);
+        }
+
+        function loadHistory() {
+            const historyRef = ref(db, 'riwayat_parkir');
+            onValue(historyRef, (snapshot) => {
+                const tbody = document.getElementById('historyTable');
+                tbody.innerHTML = '';
+                
+                if (snapshot.exists()) {
+                    const history = snapshot.val();
+                    Object.values(history).reverse().slice(0, 10).forEach(record => {
+                        const row = tbody.insertRow();
+                        row.innerHTML = `
+                            <td>${record.tanggal}</td>
+                            <td>${record.slot}</td>
+                            <td>${record.durasi}</td>
+                            <td>${formatCurrency(record.biaya)}</td>
+                        `;
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="4" class="text-center">No history available</td></tr>';
+                }
+            });
+        }
+
+        function initializeRealtimeListener() {
+            const parkingRef = ref(db, 'parkir');
+            
+            onValue(parkingRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const newData = snapshot.val();
+                    
+                    Object.keys(newData).forEach(key => {
+                        const newSlot = newData[key];
+                        const oldSlot = parkingData[key];
+                        const slotId = newSlot.id || `Slot ${key}`;
+                        
+                        if (oldSlot) {
+                            if (oldSlot.status_parkir === 'kosong' && newSlot.status_parkir !== 'kosong') {
+                                startTimer(slotId);
+                            } else if (oldSlot.status_parkir !== 'kosong' && newSlot.status_parkir === 'kosong') {
+                                stopTimer(slotId);
+                            }
+                        } else if (newSlot.status_parkir !== 'kosong') {
+                            startTimer(slotId);
+                        }
+                    });
+                    
+                    parkingData = newData;
+                    displayParkingSlots();
+                    updateStats();
+                } else {
+                    parkingData = {};
+                    displayParkingSlots();
+                    updateStats();
+                }
+            });
+        }
+
+        window.showSection = function(sectionName) {
+            const sections = ['dashboard', 'revenue', 'history', 'settings'];
+            sections.forEach(section => {
+                const element = document.getElementById(section + '-section');
+                if (element) {
+                    element.style.display = section === sectionName ? 'block' : 'none';
+                }
+            });
+            
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+        };
+
+        window.logout = function() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = 'index.html';
+            }
+        };
+
+        window.saveSettings = function() {
+            tarif = parseInt(document.getElementById('tarif').value) || 2000;
+            const maxDuration = document.getElementById('maxDuration').value;
+            alert(`Settings saved!\nTarif: Rp ${tarif}/10 detik\nMax Duration: ${maxDuration}h`);
+        };
+
+        initializeRealtimeListener();
+        loadHistory();
+        setInterval(updateActiveTimers, 1000);
+    </script>
+</body>
+</html>
+            font-size: 2.5rem;
+            font-weight: bold;
+            display: block;
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background-color: #28a745; }
+        .status-offline { background-color: #dc3545; }
+        .sensor-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            backdrop-filter: blur(5px);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            transform: translateY(-2px);
+        }
+        .text-white-80 {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        .text-white-60 {
+            color: rgba(255, 255, 255, 0.6);
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                min-height: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="text-center mb-4">
+                        <h4 class="text-white">🚗 Parkir Otomatis</h4>
+                        <p class="text-white-60">Smart Parking System</p>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" onclick="showSection('dashboard')">
+                                📊 Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="parkir.html">
+                                🅿️ Status Parkir
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showSection('monitoring')">
+                                📹 Monitoring
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showSection('history')">
+                                📋 History
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showSection('settings')">
+                                ⚙️ Settings
+                            </a>
+                        </li>
+                    </ul>
+                    
+                    <div class="mt-auto pt-3">
+                        <button class="btn btn-glass w-100" onclick="logout()">
+                            🚪 Logout
+                        </button>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="pt-3 pb-2 mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h1 class="h2 text-white">Dashboard Parkir</h1>
+                        <div class="text-white-80">
+                            <span class="status-indicator status-online pulse"></span>
+                            System Online
+                        </div>
+                    </div>
+                </div>
+
+                <div id="dashboard-section">
+                    <div class="row mb-4">
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <span class="stats-number" id="totalSlotsStats">-</span>
+                                <small>Total Slots</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <span class="stats-number text-success" id="availableSlotsStats">-</span>
+                                <small>Available</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <span class="stats-number text-danger" id="occupiedSlotsStats">-</span>
+                                <small>Occupied</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-3 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <span class="stats-number text-info" id="occupancyRate">-%</span>
+                                <small>Occupancy Rate</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-lg-8 mb-4">
+                            <div class="card-glass p-4">
+                                <h5 class="text-white mb-3">Parking Slots Status</h5>
+                                <div class="row" id="parkingSlots">
+                                    <div class="col-12 text-center text-white p-4">
+                                        <h5>Loading parking data...</h5>
+                                        <p>Connecting to Firebase database...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-4 mb-4">
+                            <div class="card-glass p-4">
+                                <h5 class="text-white mb-3">Sensor Status</h5>
+                                <div id="sensorStatus">
+                                </div>
+                                <div class="text-white-60 mt-3" style="font-size: 0.9rem;">
+                                    <span id="lastUpdate">Last update: -</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="monitoring-section" style="display: none;">
+                    <div class="card-glass p-4">
+                        <h5 class="text-white mb-3">Real-time Monitoring</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="sensor-card">
+                                    <h6 class="text-white">Last Update</h6>
+                                    <p class="text-white-80" id="lastUpdateMonitoring">-</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="sensor-card">
+                                    <h6 class="text-white">System Status</h6>
+                                    <p class="text-success">All Systems Operational</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="history-section" style="display: none;">
+                    <div class="card-glass p-4">
+                        <h5 class="text-white mb-3">Parking History</h5>
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Time</th>
+                                        <th>Slot</th>
+                                        <th>Status</th>
+                                        <th>Duration</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="historyTable">
+                                    <tr>
+                                        <td>14:30:25</td>
+                                        <td>P2</td>
+                                        <td><span class="badge bg-danger">Occupied</span></td>
+                                        <td>45 mins</td>
+                                    </tr>
+                                    <tr>
+                                        <td>13:15:10</td>
+                                        <td>P1</td>
+                                        <td><span class="badge bg-success">Available</span></td>
+                                        <td>2 hours</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="settings-section" style="display: none;">
+                    <div class="card-glass p-4">
+                        <h5 class="text-white mb-3">System Settings</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label text-white">Refresh Interval (seconds)</label>
+                                    <input type="number" class="form-control" value="5" id="refreshInterval">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label text-white">Max Parking Duration (hours)</label>
+                                    <input type="number" class="form-control" value="24" id="maxDuration">
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-glass" onclick="saveSettings()">Save Settings</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDrmPaRG8oi2RxQkvRXkxYBR4s06bX70WI",
+            authDomain: "iot-project-9db6a.firebaseapp.com",
+            databaseURL: "https://iot-project-9db6a-default-rtdb.firebaseio.com/",
+            projectId: "iot-project-9db6a",
+            storageBucket: "iot-project-9db6a.appspot.com",
+            messagingSenderId: "179074970587",
+            appId: "1:179074970587:web:3345fec94077dd5291adfe",
+            measurementId: "G-3DXCK1BTXX"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let parkingData = {};
+
+        function updateLastUpdate() {
+            const now = new Date();
+            const timeString = now.toLocaleString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            
+            const lastUpdateElement = document.getElementById('lastUpdate');
+            if (lastUpdateElement) {
+                lastUpdateElement.textContent = `Last update: ${timeString}`;
+            }
+            
+            const lastUpdateMonitoringElement = document.getElementById('lastUpdateMonitoring');
+            if (lastUpdateMonitoringElement) {
+                lastUpdateMonitoringElement.textContent = timeString;
+            }
+        }
+
+        function displayParkingSlots() {
+            const container = document.getElementById('parkingSlots');
+            
+            if (Object.keys(parkingData).length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center text-white p-4">
+                        <h5>❌ No parking data available</h5>
+                        <p>Please check Firebase connection or data structure</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            
+            Object.keys(parkingData).sort().forEach(key => {
+                const slot = parkingData[key];
+                const isAvailable = slot.status_parkir === 'kosong';
+                
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'col-md-6 col-lg-3 mb-3';
+                slotDiv.innerHTML = `
+                    <div class="parking-slot ${isAvailable ? 'slot-available' : 'slot-occupied'}">
+                        <div class="slot-icon">${isAvailable ? '🅿️' : '🚗'}</div>
+                        <h6 class="text-white">${slot.id || `Slot ${key}`}</h6>
+                        <p class="text-white-80 mb-1">Sensor: ${slot.sensor_id || 'N/A'}</p>
+                        <span class="badge ${isAvailable ? 'bg-success' : 'bg-danger'}">
+                            ${isAvailable ? 'Available' : 'Occupied'}
+                        </span>
+                    </div>
+                `;
+                container.appendChild(slotDiv);
+            });
+        }
+
+        function displaySensorStatus() {
+            const container = document.getElementById('sensorStatus');
+            container.innerHTML = '';
+            
+            Object.keys(parkingData).sort().forEach(key => {
+                const slot = parkingData[key];
+                const sensorDiv = document.createElement('div');
+                sensorDiv.className = 'sensor-card';
+                sensorDiv.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white mb-1">${slot.sensor_id || 'N/A'}</h6>
+                            <small class="text-white-60">Slot ${slot.id || key}</small>
+                        </div>
+                        <div class="status-indicator ${slot.status_parkir === 'kosong' ? 'status-online' : 'status-offline'} pulse"></div>
+                    </div>
+                `;
+                container.appendChild(sensorDiv);
+            });
+        }
+
+        function updateStats() {
+            const totalSlots = Object.keys(parkingData).length;
+            let availableSlots = 0;
+            
+            Object.values(parkingData).forEach(slot => {
+                if (slot.status_parkir === 'kosong') {
+                    availableSlots++;
+                }
+            });
+            
+            const occupiedSlots = totalSlots - availableSlots;
+            const occupancyRate = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
+            
+            document.getElementById('totalSlotsStats').textContent = totalSlots || '-';
+            document.getElementById('availableSlotsStats').textContent = availableSlots || '-';
+            document.getElementById('occupiedSlotsStats').textContent = occupiedSlots || '-';
+            document.getElementById('occupancyRate').textContent = occupancyRate + '%' || '-%';
+        }
+
+        function initializeRealtimeListener() {
+            const parkingRef = ref(db, 'parkir');
+            
+            onValue(parkingRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    parkingData = snapshot.val();
+                    console.log('Parking data updated:', parkingData);
+                    displayParkingSlots();
+                    displaySensorStatus();
+                    updateStats();
+                    updateLastUpdate();
+                } else {
+                    console.log('No parking data available');
+                    parkingData = {};
+                    displayParkingSlots();
+                    updateStats();
+                }
+            }, (error) => {
+                console.error('Firebase error:', error);
+                document.getElementById('parkingSlots').innerHTML = `
+                    <div class="col-12 text-center text-white p-4">
+                        <h5>⚠️ Connection Error</h5>
+                        <p>Unable to connect to Firebase: ${error.message}</p>
+                        <p>Please check your internet connection and try again.</p>
+                    </div>
+                `;
+            });
+        }
+
+        window.showSection = function(sectionName) {
+            const sections = ['dashboard', 'monitoring', 'history', 'settings'];
+            sections.forEach(section => {
+                const element = document.getElementById(section + '-section');
+                if (element) {
+                    element.style.display = section === sectionName ? 'block' : 'none';
+                }
+            });
+            
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+        };
+
+        window.logout = function() {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = 'index.html';
+            }
+        };
+
+        window.saveSettings = function() {
+            const refreshInterval = document.getElementById('refreshInterval').value;
+            const maxDuration = document.getElementById('maxDuration').value;
+            
+            alert(`Settings saved!\nRefresh Interval: ${refreshInterval}s\nMax Duration: ${maxDuration}h`);
+        };
+
+        initializeRealtimeListener();
+        setInterval(updateLastUpdate, 1000);
+        updateLastUpdate();
     </script>
 </body>
 </html>

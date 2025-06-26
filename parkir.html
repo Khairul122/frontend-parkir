@@ -1,512 +1,657 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Parkir</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-      rel="stylesheet"
-    />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css"
-    />
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
-      import {
-        getDatabase,
-        ref,
-        onValue,
-        set,
-        push,
-        get,
-      } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
-      import {
-        getAuth,
-        signOut,
-      } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-auth.js";
-
-      const firebaseConfig = {
-        apiKey: "AIzaSyDrmPaRG8oi2RxQkvRXkxYBR4s06bX70WI",
-        authDomain: "iot-project-9db6a.firebaseapp.com",
-        projectId: "iot-project-9db6a",
-        databaseURL: "https://iot-project-9db6a-default-rtdb.firebaseio.com/",
-        storageBucket: "iot-project-9db6a.firebasestorage.app",
-        messagingSenderId: "179074970587",
-        appId: "1:179074970587:web:3345fec94077dd5291adfe",
-        measurementId: "G-3DXCK1BTXX",
-      };
-
-      const app = initializeApp(firebaseConfig);
-      const database = getDatabase(app);
-      const auth = getAuth(app);
-
-      let startTime1 = null;
-      let startTime2 = null;
-      let timer1 = null;
-      let timer2 = null;
-
-      async function handleLogout() {
-        try {
-          await signOut(auth);
-          window.location.href = "index.html";
-        } catch (error) {
-          console.error("Error during logout:", error);
-          alert("Failed to logout. Please try again.");
-        }
-      }
-
-      document.addEventListener("DOMContentLoaded", () => {
-        const logoutLink = document.getElementById("logoutLink");
-        if (logoutLink) {
-          logoutLink.addEventListener("click", (e) => {
-            e.preventDefault();
-            handleLogout();
-          });
-        }
-      });
-
-      function calculateDuration(startTime) {
-        if (!startTime) return "--:--:--";
-        const duration = Math.floor((Date.now() - startTime) / 1000);
-        const hours = Math.floor(duration / 3600);
-        const minutes = Math.floor((duration % 3600) / 60);
-        const seconds = duration % 60;
-        return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-          2,
-          "0"
-        )}:${String(seconds).padStart(2, "0")}`;
-      }
-
-      function calculateParkingFee(duration) {
-        if (duration === "--:--:--") return 0;
-        const [hours, minutes] = duration.split(":").map(Number);
-        const totalMinutes = hours * 60 + minutes;
-        return totalMinutes * 2000;
-      }
-
-      function formatDateTime(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString("id-ID", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        });
-      }
-
-      function formatTime(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleTimeString("id-ID", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
-      }
-
-      function formatRupiah(amount) {
-        return `Rp ${amount.toLocaleString("id-ID")}`;
-      }
-
-      async function saveParkingHistory(parkingSpace, duration, fee) {
-        try {
-          const now = new Date();
-          const parkingId = `P00${parkingSpace}`;
-
-          const historyRef = ref(database, "riwayat_parkir");
-          const snapshot = await get(historyRef);
-
-          let nextNumber = 1;
-          if (snapshot.exists()) {
-            const entries = Object.entries(snapshot.val() || {});
-            for (const [key, value] of entries) {
-              const match = key.match(/riwayat(\d+)/);
-              if (match) {
-                const num = parseInt(match[1]);
-                if (num >= nextNumber) {
-                  nextNumber = num + 1;
-                }
-              }
-            }
-          }
-
-          const newId = `R${String(nextNumber).padStart(3, "0")}`;
-
-          const newHistoryRef = ref(
-            database,
-            `riwayat_parkir/riwayat${nextNumber}`
-          );
-          const historyData = {
-            id_riwayat: newId,
-            id_parkir: parkingId,
-            biaya_parkir: fee,
-            waktu_parkir: duration,
-            tanggal: now.toISOString(), // Simpan full ISO string
-            jam: now.toLocaleTimeString("id-ID"), // Simpan waktu
-          };
-
-          await set(newHistoryRef, historyData);
-          console.log("Berhasil menyimpan riwayat parkir:", historyData);
-
-          await set(
-            ref(database, `parkir/parkir${parkingSpace}/status`),
-            "Selesai"
-          );
-        } catch (error) {
-          console.error("Error menyimpan riwayat parkir:", error);
-        }
-      }
-
-      function updateDuration(parkingSpace) {
-        const durationElement = document.getElementById(
-          `duration${parkingSpace}`
-        );
-        const feeElement = document.getElementById(`fee${parkingSpace}`);
-        const startTime = parkingSpace === 1 ? startTime1 : startTime2;
-
-        if (startTime) {
-          const duration = calculateDuration(startTime);
-          const fee = calculateParkingFee(duration);
-          durationElement.textContent = `Durasi Parkir: ${duration}`;
-          feeElement.textContent = `Biaya Parkir: Rp ${fee}`;
-          return { duration, fee };
-        }
-        return null;
-      }
-
-      function updateRiwayatParkir() {
-        const riwayatRef = ref(database, "riwayat_parkir");
-
-        onValue(riwayatRef, (snapshot) => {
-          const data = snapshot.val();
-          if (!data) return;
-
-          const riwayat1 = [];
-          const riwayat2 = [];
-
-          Object.values(data).forEach((item) => {
-            if (item.id_parkir === "P001") {
-              riwayat1.push(item);
-            } else if (item.id_parkir === "P002") {
-              riwayat2.push(item);
-            }
-          });
-
-          const sortByDate = (a, b) =>
-            new Date(b.tanggal) - new Date(a.tanggal);
-          riwayat1.sort(sortByDate);
-          riwayat2.sort(sortByDate);
-
-          // Update tabel riwayat parkir 1
-          const tbody1 = document.getElementById("riwayatParkir1");
-          tbody1.innerHTML = riwayat1
-            .map(
-              (item, index) => `
-      <tr>
-        <td>${index + 1}</td>
-        <td>${formatDateTime(item.tanggal)}</td>
-        <td>${item.jam || formatTime(item.tanggal)}</td>
-        <td>Parkir 1</td>
-        <td>${item.waktu_parkir}</td>
-        <td>${formatRupiah(item.biaya_parkir)}</td>
-      </tr>
-    `
-            )
-            .join("");
-
-          // Update tabel riwayat parkir 2
-          const tbody2 = document.getElementById("riwayatParkir2");
-          tbody2.innerHTML = riwayat2
-            .map(
-              (item, index) => `
-      <tr>
-        <td>${index + 1}</td>
-        <td>${formatDateTime(item.tanggal)}</td>
-        <td>${item.jam || formatTime(item.tanggal)}</td>
-        <td>Parkir 2</td>
-        <td>${item.waktu_parkir}</td>
-        <td>${formatRupiah(item.biaya_parkir)}</td>
-      </tr>
-    `
-            )
-            .join("");
-        });
-      }
-
-      function updateStatus() {
-        const palangMasukRef = ref(database, "palang/palang1/status");
-        const palangKeluarRef = ref(database, "palang/palang2/status");
-        const parkir1Ref = ref(database, "parkir/parkir1");
-        const parkir2Ref = ref(database, "parkir/parkir2");
-
-        onValue(palangMasukRef, (snapshot) => {
-          const status = snapshot.val();
-          const palangMasukStatus =
-            document.getElementById("palangMasukStatus");
-          palangMasukStatus.textContent =
-            status === 1 ? "Palang Masuk Terbuka" : "Palang Masuk Tertutup";
-          palangMasukStatus.className =
-            status === 1 ? "status-open" : "status-closed";
-        });
-
-        onValue(palangKeluarRef, (snapshot) => {
-          const status = snapshot.val();
-          const palangKeluarStatus =
-            document.getElementById("palangKeluarStatus");
-          palangKeluarStatus.textContent =
-            status === 1 ? "Palang Keluar Terbuka" : "Palang Keluar Tertutup";
-          palangKeluarStatus.className =
-            status === 1 ? "status-open" : "status-closed";
-        });
-
-        onValue(parkir1Ref, (snapshot) => {
-          const parkingData = snapshot.val();
-          document.getElementById("parkir1Status").textContent =
-            parkingData.status_parkir || "Gagal memuat status parkir";
-
-          if (parkingData.status_parkir === "Parkir" && !startTime1) {
-            startTime1 = Date.now();
-            timer1 = setInterval(() => updateDuration(1), 1000);
-            set(ref(database, "parkir/parkir1/status"), "Proses");
-          } else if (
-            parkingData.status_parkir === "Tidak Parkir" &&
-            startTime1
-          ) {
-            clearInterval(timer1);
-            const finalStats = updateDuration(1);
-            saveParkingHistory(1, finalStats.duration, finalStats.fee);
-            startTime1 = null;
-            document.getElementById("duration1").textContent =
-              "Durasi Parkir: --:--:--";
-            document.getElementById("fee1").textContent = "Biaya Parkir: Rp 0";
-          }
-        });
-
-        onValue(parkir2Ref, (snapshot) => {
-          const parkingData = snapshot.val();
-          document.getElementById("parkir2Status").textContent =
-            parkingData.status_parkir || "Gagal memuat status parkir";
-
-          if (parkingData.status_parkir === "Parkir" && !startTime2) {
-            startTime2 = Date.now();
-            timer2 = setInterval(() => updateDuration(2), 1000);
-            set(ref(database, "parkir/parkir2/status"), "Proses");
-          } else if (
-            parkingData.status_parkir === "Tidak Parkir" &&
-            startTime2
-          ) {
-            clearInterval(timer2);
-            const finalStats = updateDuration(2);
-            saveParkingHistory(2, finalStats.duration, finalStats.fee);
-            startTime2 = null;
-            document.getElementById("duration2").textContent =
-              "Durasi Parkir: --:--:--";
-            document.getElementById("fee2").textContent = "Biaya Parkir: Rp 0";
-          }
-        });
-      }
-
-      document.addEventListener("DOMContentLoaded", () => {
-        updateStatus();
-        updateRiwayatParkir();
-      });
-    </script>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Status Parkir - Parkir Otomatis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-      .sidebar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 250px;
-        height: 100vh;
-        color: white;
-        background: linear-gradient(180deg, #1a1f3c 0%, #111226 100%);
-        padding-top: 20px;
-        transition: all 0.3s;
-        z-index: 1000;
-        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-      }
-      .nav-link {
-        color: rgba(255, 255, 255, 0.8);
-        padding: 0.8rem 1rem;
-        border-radius: 8px;
-        margin: 0.2rem 0.8rem;
-        transition: all 0.3s;
-        display: block;
-      }
-      .nav-link:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
-      }
-      .main-content {
-        margin-left: 250px;
-        padding: 20px;
-      }
-      .status-card {
-        border: 1px solid #ddd;
-        border-radius: 10px;
-        padding: 15px;
-        margin-bottom: 15px;
-      }
-      .status-open {
-        color: green;
-      }
-      .status-closed {
-        color: red;
-      }
-      .card {
-        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-        border-radius: 10px;
-        margin-bottom: 20px;
-      }
-
-      .card-header {
-        background-color: #f8f9fa;
-        border-bottom: 1px solid #dee2e6;
-        padding: 15px;
-        border-radius: 10px 10px 0 0;
-      }
-
-      .table {
-        margin-bottom: 0;
-      }
-
-      .table th {
-        font-weight: 600;
-        background-color: #f8f9fa;
-      }
-
-      .pagination {
-        margin-top: 15px;
-        margin-bottom: 0;
-      }
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+        }
+        .sidebar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            min-height: 100vh;
+        }
+        .main-content {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
+            min-height: 100vh;
+        }
+        .card-glass {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            transition: all 0.3s ease;
+        }
+        .card-glass:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .nav-link {
+            color: rgba(255, 255, 255, 0.8) !important;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 5px 0;
+            transition: all 0.3s ease;
+        }
+        .nav-link:hover, .nav-link.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white !important;
+        }
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            backdrop-filter: blur(5px);
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+        .btn-glass:hover {
+            background: rgba(255, 255, 255, 0.3);
+            color: white;
+            transform: translateY(-2px);
+        }
+        .stats-card {
+            background: linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.2));
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            color: white;
+        }
+        .stats-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            display: block;
+        }
+        .parking-slot {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            margin: 10px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 220px;
+        }
+        .parking-slot::before, .palang-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        .parking-slot:hover::before, .palang-card:hover::before {
+            left: 100%;
+        }
+        .slot-available, .palang-open {
+            border-color: #28a745;
+            background: rgba(40, 167, 69, 0.2);
+        }
+        .slot-occupied, .palang-closed {
+            border-color: #dc3545;
+            background: rgba(220, 53, 69, 0.2);
+        }
+        .slot-icon, .palang-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        .timer-display {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 8px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #00ff41;
+            border: 1px solid #00ff41;
+        }
+        .cost-display {
+            background: rgba(255, 193, 7, 0.3);
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 6px;
+            margin-top: 8px;
+            font-weight: bold;
+            color: #ffc107;
+            font-size: 0.95rem;
+        }
+        .palang-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            margin: 10px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            min-height: 180px;
+        }
+        .sensor-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-online { background-color: #28a745; }
+        .status-offline { background-color: #dc3545; }
+        .text-white-80 { color: rgba(255, 255, 255, 0.8); }
+        .text-white-60 { color: rgba(255, 255, 255, 0.6); }
+        .text-white-50 { color: rgba(255, 255, 255, 0.5); }
+        .refresh-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 25px;
+            backdrop-filter: blur(10px);
+            font-size: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .sidebar { min-height: auto; }
+            .parking-slot, .palang-card { min-height: 200px; }
+        }
     </style>
-  </head>
-  <body>
-    <div class="sidebar">
-      <h4 class="text-center text-white">Smart Parking</h4>
-      <nav class="nav flex-column">
-        <a href="dashboard.html" class="nav-link active"
-          ><i class="bi bi-house-door"></i> Dashboard</a
-        >
-        <a href="parkir.html" class="nav-link"
-          ><i class="bi bi-car-front"></i> Parkir</a
-        >
-        <a href="#" class="nav-link"
-          ><i class="bi bi-clipboard-data"></i> Laporan</a
-        >
-        <a href="#" class="nav-link" id="logoutLink"
-          ><i class="bi bi-box-arrow-right"></i> Keluar</a
-        >
-      </nav>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="text-center mb-4">
+                        <h4 class="text-white">🚗 Parkir Otomatis</h4>
+                        <p class="text-white-60">Smart Parking System</p>
+                    </div>
+                    
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="dashboard.html">📊 Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="parkir.html">🅿️ Status Parkir</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="riwayat.html" >📋 Riwayat Parkir</a>
+                        </li>
+                    </ul>
+                    
+                    <div class="mt-auto pt-3">
+                        <button class="btn btn-glass w-100" onclick="logout()">🚪 Logout</button>
+                    </div>
+                </div>
+            </nav>
+
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+                <div class="pt-3 pb-2 mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h1 class="h2 text-white">Status Parkir Real-time</h1>
+                        <div class="text-white-80">
+                            <span class="status-indicator status-online pulse"></span>
+                            System Online
+                        </div>
+                    </div>
+                </div>
+
+                <div class="refresh-indicator" id="refreshIndicator">
+                    <span id="refreshText">Auto-refresh: 5s</span>
+                </div>
+
+                <div id="parkir-section">
+                    <div class="row mb-4">
+                        <div class="col-lg-12 mb-4">
+                            <div class="card-glass p-4">
+                                <h5 class="text-white mb-3">Status Palang Parkir</h5>
+                                <div class="row" id="palangStatus">
+                                    <div class="col-12 text-center text-white p-4">
+                                        <h5>Loading palang data...</h5>
+                                        <p>Connecting to Firebase database...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-lg-6 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <span class="stats-number" id="totalSlots">-</span>
+                                <small>Total Slots</small>
+                            </div>
+                        </div>
+                        <div class="col-lg-6 col-md-6 mb-3">
+                            <div class="stats-card">
+                                <span class="stats-number text-success" id="availableSlots">-</span>
+                                <small>Available</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-lg-8 mb-4">
+                            <div class="card-glass p-4">
+                                <h5 class="text-white mb-3">Parking Slots with Billing</h5>
+                                <div class="row" id="parkingSlots">
+                                    <div class="col-12 text-center text-white p-4">
+                                        <h5>Loading parking data...</h5>
+                                        <p>Connecting to Firebase database...</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-lg-4 mb-4">
+                            <div class="card-glass p-4">
+                                <h5 class="text-white mb-3">Quick Stats</h5>
+                                <div id="quickStats">
+                                    <div class="sensor-card">
+                                        <h6 class="text-white">Occupancy Rate</h6>
+                                        <p class="text-info" id="occupancyRate">0%</p>
+                                    </div>
+                                    <div class="sensor-card">
+                                        <h6 class="text-white">Active Timers</h6>
+                                        <p class="text-warning" id="activeTimers">0</p>
+                                    </div>
+                                </div>
+                                <div class="text-white-60 mt-3" style="font-size: 0.9rem;">
+                                    <span id="lastUpdate">Last update: -</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="monitoring-section" style="display: none;">
+                    <div class="card-glass p-4">
+                        <h5 class="text-white mb-3">System Health</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="sensor-card">
+                                    <h6 class="text-white">Database Connection</h6>
+                                    <p class="text-success">✅ Connected</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="sensor-card">
+                                    <h6 class="text-white">Sensor Network</h6>
+                                    <p class="text-success">✅ All Active</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="sensors-section" style="display: none;">
+                    <div class="card-glass p-4">
+                        <h5 class="text-white mb-3">Detailed Sensor Status</h5>
+                        <div class="row" id="detailedSensors"></div>
+                    </div>
+                </div>
+            </main>
+        </div>
     </div>
 
-    <div class="main-content">
-      <div class="row">
-        <div class="col-md-6">
-          <div class="status-card">
-            <h5>Palang Masuk</h5>
-            <p id="palangMasukStatus">Loading...</p>
-          </div>
-          <div class="status-card">
-            <h5>Parkir 1</h5>
-            <p id="parkir1Status" class="text-danger">
-              Gagal memuat status parkir
-            </p>
-            <p id="duration1">Durasi Parkir: --:--:--</p>
-            <p id="fee1">Biaya Parkir: Rp 0</p>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="status-card">
-            <h5>Palang Keluar</h5>
-            <p id="palangKeluarStatus">Loading...</p>
-          </div>
-          <div class="status-card">
-            <h5>Parkir 2</h5>
-            <p id="parkir2Status" class="text-danger">
-              Gagal memuat status parkir
-            </p>
-            <p id="duration2">Durasi Parkir: --:--:--</p>
-            <p id="fee2">Biaya Parkir: Rp 0</p>
-          </div>
-        </div>
-        <!-- Riwayat Parkir 1 -->
-        <div class="col-md-6">
-          <div class="card">
-            <div class="card-header">
-              <h5 class="mb-0">Riwayat Parkir - Parkir 1</h5>
-            </div>
-            <div class="card-body">
-              <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                  <thead>
-                    <tr>
-                      <th>No</th>
-                      <th>Tanggal</th>
-                      <th>Jam</th>
-                      <th>Lahan Parkir</th>
-                      <th>Durasi</th>
-                      <th>Biaya</th>
-                    </tr>
-                  </thead>
-                  <tbody id="riwayatParkir1"></tbody>
-                </table>
-              </div>
-              <nav>
-                <ul class="pagination justify-content-center">
-                  <li class="page-item">
-                    <a class="page-link" href="#" id="prevPage1">«</a>
-                  </li>
-                  <li class="page-item active">
-                    <span class="page-link">Halaman 1 dari 1</span>
-                  </li>
-                  <li class="page-item">
-                    <a class="page-link" href="#" id="nextPage1">»</a>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-          </div>
-        </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-app.js";
+        import { getDatabase, ref, onValue, push } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-database.js";
 
-        <!-- Riwayat Parkir 2 -->
-        <div class="col-md-6">
-          <div class="card">
-            <div class="card-header">
-              <h5 class="mb-0">Riwayat Parkir - Parkir 2</h5>
-            </div>
-            <div class="card-body">
-              <div class="table-responsive">
-                <table class="table table-striped table-hover">
-                  <thead>
-                    <tr>
-                      <th>No</th>
-                      <th>Tanggal</th>
-                      <th>Lahan Parkir</th>
-                      <th>Durasi</th>
-                      <th>Biaya</th>
-                    </tr>
-                  </thead>
-                  <tbody id="riwayatParkir2"></tbody>
-                </table>
-              </div>
-              <nav>
-                <ul class="pagination justify-content-center">
-                  <li class="page-item">
-                    <a class="page-link" href="#" id="prevPage2">«</a>
-                  </li>
-                  <li class="page-item active">
-                    <span class="page-link">Halaman 1 dari 1</span>
-                  </li>
-                  <li class="page-item">
-                    <a class="page-link" href="#" id="nextPage2">»</a>
-                  </li>
-                </ul>
-              </nav>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </body>
+        const firebaseConfig = {
+            apiKey: "AIzaSyDrmPaRG8oi2RxQkvRXkxYBR4s06bX70WI",
+            authDomain: "iot-project-9db6a.firebaseapp.com",
+            databaseURL: "https://iot-project-9db6a-default-rtdb.firebaseio.com/",
+            projectId: "iot-project-9db6a",
+            storageBucket: "iot-project-9db6a.appspot.com",
+            messagingSenderId: "179074970587",
+            appId: "1:179074970587:web:3345fec94077dd5291adfe",
+            measurementId: "G-3DXCK1BTXX"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let parkingData = {};
+        let palangData = {};
+        let timers = {};
+        let refreshCounter = 5;
+        const TARIF_PER_10_DETIK = 2000;
+
+        const formatTime = (seconds) => {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        const formatCurrency = (amount) => {
+            return new Intl.NumberFormat('id-ID', {
+                style: 'currency',
+                currency: 'IDR',
+                minimumFractionDigits: 0
+            }).format(amount);
+        };
+
+        const getTanggalIndonesia = () => {
+            return new Date().toLocaleDateString('id-ID', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                timeZone: 'Asia/Jakarta'
+            });
+        };
+
+        const startTimer = (slotId) => {
+            if (timers[slotId]) return;
+            
+            timers[slotId] = {
+                startTime: Date.now(),
+                intervalId: setInterval(() => updateSlotTimer(slotId), 1000)
+            };
+        };
+
+        const stopTimer = (slotId) => {
+            if (!timers[slotId]) return;
+            
+            const duration = Math.floor((Date.now() - timers[slotId].startTime) / 1000);
+            const cost = Math.floor(duration / 10) * TARIF_PER_10_DETIK;
+            
+            clearInterval(timers[slotId].intervalId);
+            delete timers[slotId];
+            
+            saveToHistory(slotId, duration, cost);
+        };
+
+        const updateSlotTimer = (slotId) => {
+            if (!timers[slotId]) return;
+            
+            const duration = Math.floor((Date.now() - timers[slotId].startTime) / 1000);
+            const cost = Math.floor(duration / 10) * TARIF_PER_10_DETIK;
+            
+            const slotElement = document.querySelector(`[data-slot="${slotId}"]`);
+            if (slotElement) {
+                const timerDisplay = slotElement.querySelector('.timer-display');
+                const costDisplay = slotElement.querySelector('.cost-display');
+                
+                if (timerDisplay) timerDisplay.textContent = formatTime(duration);
+                if (costDisplay) costDisplay.textContent = formatCurrency(cost);
+            }
+        };
+
+        const saveToHistory = async (slotId, duration, cost) => {
+            try {
+                const historyRef = ref(db, 'riwayat_parkir');
+                await push(historyRef, {
+                    slot: slotId,
+                    durasi: formatTime(duration),
+                    biaya: cost,
+                    tanggal: getTanggalIndonesia()
+                });
+            } catch (error) {
+                console.error('Error saving history:', error);
+            }
+        };
+
+        const updateRefreshCounter = () => {
+            const refreshText = document.getElementById('refreshText');
+            refreshText.textContent = `Auto-refresh: ${refreshCounter}s`;
+            refreshCounter = refreshCounter <= 0 ? 5 : refreshCounter - 1;
+        };
+
+        const updateLastUpdate = () => {
+            const timeString = new Date().toLocaleString('id-ID', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+            document.getElementById('lastUpdate').textContent = `Last update: ${timeString}`;
+        };
+
+        const displayPalangStatus = () => {
+            const container = document.getElementById('palangStatus');
+            
+            if (Object.keys(palangData).length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center text-white p-4">
+                        <h5>❌ No palang data available</h5>
+                        <p>Please check Firebase connection</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            
+            Object.keys(palangData).sort().forEach(key => {
+                const palang = palangData[key];
+                const isOpen = palang.status === 1;
+                const palangId = palang.id_palang || `Palang ${key}`;
+                const palangName = palang.nama_palang || `Gate ${key}`;
+                
+                const palangDiv = document.createElement('div');
+                palangDiv.className = 'col-md-6 col-lg-6 mb-3';
+                palangDiv.innerHTML = `
+                    <div class="palang-card ${isOpen ? 'palang-open' : 'palang-closed'}">
+                        <div class="palang-icon">${isOpen ? '⬆️' : '⬇️'}</div>
+                        <h6 class="text-white">${palangName}</h6>
+                        <p class="text-white-80 mb-1">ID: ${palangId}</p>
+                        <span class="badge ${isOpen ? 'bg-success' : 'bg-danger'}">
+                            ${isOpen ? 'Terbuka' : 'Tertutup'}
+                        </span>
+                    </div>
+                `;
+                container.appendChild(palangDiv);
+            });
+        };
+
+        const displayParkingSlots = () => {
+            const container = document.getElementById('parkingSlots');
+            
+            if (Object.keys(parkingData).length === 0) {
+                container.innerHTML = `
+                    <div class="col-12 text-center text-white p-4">
+                        <h5>❌ No parking data available</h5>
+                        <p>Please check Firebase connection</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            
+            Object.keys(parkingData).sort().forEach(key => {
+                const slot = parkingData[key];
+                const isAvailable = slot.status_parkir === 'kosong';
+                const slotId = slot.id || `Slot ${key}`;
+                
+                if (!isAvailable && !timers[slotId]) {
+                    startTimer(slotId);
+                }
+                
+                const timerHtml = !isAvailable ? `
+                    <div class="timer-display">00:00:00</div>
+                    <div class="cost-display">Rp 0</div>
+                ` : '';
+                
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'col-md-6 col-lg-3 mb-3';
+                slotDiv.innerHTML = `
+                    <div class="parking-slot ${isAvailable ? 'slot-available' : 'slot-occupied'}" data-slot="${slotId}">
+                        <div class="slot-icon">${isAvailable ? '🅿️' : '🚗'}</div>
+                        <h6 class="text-white">${slotId}</h6>
+                        <p class="text-white-80 mb-1">Sensor: ${slot.sensor_id || 'N/A'}</p>
+                        <span class="badge ${isAvailable ? 'bg-success' : 'bg-danger'}">
+                            ${isAvailable ? 'Available' : 'Occupied'}
+                        </span>
+                        ${timerHtml}
+                    </div>
+                `;
+                container.appendChild(slotDiv);
+            });
+        };
+
+        const displayDetailedSensors = () => {
+            const container = document.getElementById('detailedSensors');
+            container.innerHTML = '';
+            
+            Object.keys(parkingData).sort().forEach(key => {
+                const slot = parkingData[key];
+                const isOnline = slot.status_parkir !== undefined;
+                
+                const sensorDiv = document.createElement('div');
+                sensorDiv.className = 'col-md-6 col-lg-4 mb-3';
+                sensorDiv.innerHTML = `
+                    <div class="sensor-card">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="text-white mb-0">${slot.sensor_id || 'N/A'}</h6>
+                            <div class="status-indicator ${isOnline ? 'status-online' : 'status-offline'} pulse"></div>
+                        </div>
+                        <p class="text-white-80 mb-1">Slot: ${slot.id || key}</p>
+                        <p class="text-white-60 mb-1">Status: ${slot.status_parkir || 'Unknown'}</p>
+                        <small class="text-white-50">Last ping: Just now</small>
+                    </div>
+                `;
+                container.appendChild(sensorDiv);
+            });
+        };
+
+        const updateStats = () => {
+            const totalSlots = Object.keys(parkingData).length;
+            const availableSlots = Object.values(parkingData).filter(slot => slot.status_parkir === 'kosong').length;
+            const occupiedSlots = totalSlots - availableSlots;
+            const occupancyRate = totalSlots > 0 ? Math.round((occupiedSlots / totalSlots) * 100) : 0;
+            const activeTimersCount = Object.keys(timers).length;
+            
+            document.getElementById('totalSlots').textContent = totalSlots;
+            document.getElementById('availableSlots').textContent = availableSlots;
+            document.getElementById('occupancyRate').textContent = occupancyRate + '%';
+            document.getElementById('activeTimers').textContent = activeTimersCount;
+        };
+
+        const initializeRealtimeListener = () => {
+            const parkingRef = ref(db, 'parkir');
+            const palangRef = ref(db, 'palang');
+            
+            onValue(parkingRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    const newData = snapshot.val();
+                    
+                    Object.keys(newData).forEach(key => {
+                        const newSlot = newData[key];
+                        const oldSlot = parkingData[key];
+                        const slotId = newSlot.id || `Slot ${key}`;
+                        
+                        if (oldSlot) {
+                            if (oldSlot.status_parkir === 'kosong' && newSlot.status_parkir !== 'kosong') {
+                                startTimer(slotId);
+                            } else if (oldSlot.status_parkir !== 'kosong' && newSlot.status_parkir === 'kosong') {
+                                stopTimer(slotId);
+                            }
+                        } else if (newSlot.status_parkir !== 'kosong') {
+                            startTimer(slotId);
+                        }
+                    });
+                    
+                    parkingData = newData;
+                    displayParkingSlots();
+                    displayDetailedSensors();
+                    updateStats();
+                    updateLastUpdate();
+                } else {
+                    parkingData = {};
+                    displayParkingSlots();
+                    updateStats();
+                }
+            }, (error) => {
+                console.error('Firebase error:', error);
+                document.getElementById('parkingSlots').innerHTML = `
+                    <div class="col-12 text-center text-white p-4">
+                        <h5>⚠️ Connection Error</h5>
+                        <p>Unable to connect to Firebase</p>
+                    </div>
+                `;
+            });
+
+            onValue(palangRef, (snapshot) => {
+                if (snapshot.exists()) {
+                    palangData = snapshot.val();
+                    displayPalangStatus();
+                } else {
+                    palangData = {};
+                    displayPalangStatus();
+                }
+            }, (error) => {
+                console.error('Firebase palang error:', error);
+                document.getElementById('palangStatus').innerHTML = `
+                    <div class="col-12 text-center text-white p-4">
+                        <h5>⚠️ Connection Error</h5>
+                        <p>Unable to connect to Firebase for palang data</p>
+                    </div>
+                `;
+            });
+        };
+
+        window.showSection = (sectionName) => {
+            const sections = ['parkir', 'monitoring', 'sensors'];
+            sections.forEach(section => {
+                const element = document.getElementById(section + '-section');
+                if (element) {
+                    element.style.display = section === sectionName ? 'block' : 'none';
+                }
+            });
+            
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+        };
+
+        window.logout = () => {
+            if (confirm('Are you sure you want to logout?')) {
+                window.location.href = 'index.html';
+            }
+        };
+
+        initializeRealtimeListener();
+        setInterval(updateRefreshCounter, 1000);
+        updateLastUpdate();
+    </script>
+</body>
 </html>
